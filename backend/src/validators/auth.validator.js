@@ -19,58 +19,58 @@ const passwordSchema = z
 
 const register = {
     body: z.object({
-    email: z.string().email().toLowerCase(),
-    phone: z
-        .string()
-        .regex(/^\+?[0-9]{10,15}$/, 'Enter a valid phone number')
-        .optional(),
-    password: passwordSchema,
-    role: z.enum(ROLES_OPEN_AT_REGISTRATION),
-    firstName: z.string().min(1).max(80),
-    lastName: z.string().min(1).max(80),
-    businessName: z.string().max(120).optional(),
+        email: z.string().email().toLowerCase(),
+        phone: z
+            .string()
+            .regex(/^\+?[0-9]{10,15}$/, 'Enter a valid phone number')
+            .optional(),
+        password: passwordSchema,
+        role: z.enum(ROLES_OPEN_AT_REGISTRATION),
+        firstName: z.string().min(1).max(80),
+        lastName: z.string().min(1).max(80),
+        businessName: z.string().max(120).optional(),
     }),
 };
 
 const login = {
     body: z.object({
-    email: z.string().email().toLowerCase(),
-    password: z.string().min(1, 'Password is required'),
+        email: z.string().email().toLowerCase(),
+        password: z.string().min(1, 'Password is required'),
     }),
 };
 
 const verifyOtp = {
     body: z.object({
-    userId: z.string().uuid(),
-    code: z.string().length(6),
-    purpose: z.enum(['REGISTRATION', 'LOGIN', 'PASSWORD_RESET', 'PHONE_VERIFICATION']),
+        userId: z.string().uuid(),
+        code: z.string().length(6),
+        purpose: z.enum(['REGISTRATION', 'LOGIN', 'PASSWORD_RESET', 'PHONE_VERIFICATION']),
     }),
 };
 
 const resendOtp = {
     body: z.object({
-    userId: z.string().uuid(),
-    purpose: z.enum(['REGISTRATION', 'LOGIN', 'PASSWORD_RESET', 'PHONE_VERIFICATION']),
+        userId: z.string().uuid(),
+        purpose: z.literal('REGISTRATION'),
     }),
 };
 
 const refreshToken = {
     body: z.object({
-    refreshToken: z.string().min(10),
+        refreshToken: z.string().min(10),
     }),
 };
 
 const forgotPassword = {
     body: z.object({
-    email: z.string().email().toLowerCase(),
+        email: z.string().email().toLowerCase(),
     }),
 };
 
 const resetPassword = {
     body: z.object({
-    userId: z.string().uuid(),
-    code: z.string().length(6),
-    newPassword: passwordSchema,
+        userId: z.string().uuid(),
+        code: z.string().length(6),
+        newPassword: passwordSchema,
     }),
 };
 

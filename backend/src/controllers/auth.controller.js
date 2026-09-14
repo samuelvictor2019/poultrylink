@@ -24,6 +24,9 @@ const verifyRegistrationOtp = asyncHandler(async (req, res) => {
 
 const resendOtp = asyncHandler(async (req, res) => {
     const { userId, purpose } = req.body;
+    if (purpose !== 'REGISTRATION') {
+        throw ApiError.badRequest('Only registration OTPs can be resent here');
+    }
     const { expiresAt } = await otpService.createAndSendOtp(userId, purpose);
     sendSuccess(res, { message: 'OTP resent', data: { otpExpiresAt: expiresAt } });
 });
