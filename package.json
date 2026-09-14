@@ -40,14 +40,14 @@
     "typescript": "^6.0.3"
   },
   "scripts": {
-    "dev": "nodemon server.js",
-    "start": "node server.js",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:deploy": "prisma migrate deploy",
-    "prisma:studio": "prisma studio",
-    "seed": "node prisma/seed.js",
-    "lint": "eslint src"
+    "dev": "nodemon backend/server.js",
+    "start": "node backend/server.js",
+    "prisma:generate": "prisma generate --config backend/prisma7.config.ts",
+    "prisma:migrate": "prisma migrate dev --config backend/prisma7.config.ts",
+    "prisma:deploy": "prisma migrate deploy --config backend/prisma7.config.ts",
+    "prisma:studio": "prisma studio --config backend/prisma7.config.ts",
+    "seed": "node database/seeds/seed.js",
+    "lint": "eslint backend/src"
   },
   "keywords": [],
   "author": "",

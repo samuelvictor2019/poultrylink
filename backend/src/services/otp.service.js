@@ -17,7 +17,7 @@ async function deliverOtp(user, code, purpose) {
 }
 
 async function createAndSendOtp(userId, purpose) {
-    const user = prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     const code = generateCode();
     const expiresAt = new Date(Date.now() + env.OTP_EXPIRES_IN_MINUTES * 60 * 1000);
 

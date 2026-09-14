@@ -5,7 +5,6 @@ const ApiError = require('../utils/ApiError');
 const { signAccessToken, signRefreshToken, verifyRefreshToken } = require('../utils/jwt');
 const { hashToken } = require('../utils/hash');
 const otpService = require('./otp.service');
-const { email } = require('zod/v4');
 
 async function registerUser({ email, phone, password, role, firstName, lastName, businessName }) {
     const existing = await prisma.user.findFirst({

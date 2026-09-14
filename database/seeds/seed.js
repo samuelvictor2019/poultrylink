@@ -1,4 +1,4 @@
-const { prisma } = require('../../backend/config/dbHandler');
+const { prisma } = require('../../backend/src/config/dbHandler');
 
 const CATEGORIES = [
     { name: 'Live Birds', slug: 'live-birds' },

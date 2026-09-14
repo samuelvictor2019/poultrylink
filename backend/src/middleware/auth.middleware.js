@@ -6,11 +6,12 @@ const { prisma } = require('../config/dbHandler');
 // attaches authenticated user to req.user for downstream handlers
 const authenticate = asyncHandler(async (req, res, next) => {
     const header = req.headers.authorization;
-    if (!header || header.startsWith('Bearer')) {
+    if (!header || !header.startsWith('Bearer ')) {
         throw ApiError.unauthorized('Authentication token missing');
     }
 
-    const token = header.split(' ')[1];
+    const token = header.slice('Bearer '.length).trim();
+    if (!token) throw ApiError.unauthorized('Authentication token missing');
     let payload;
     try {
         payload = verifyAccessToken(token);
@@ -21,7 +22,7 @@ const authenticate = asyncHandler(async (req, res, next) => {
         );
     }
 
-    const user = await prisma.findUnique({ where: { id: payload.sub } });
+    const user = await prisma.user.findUnique({ where: { id: payload.sub } });
     if (!user || !user.isActive) {
         throw ApiError.unauthorized('User no longer exists or is deactivated');
     }

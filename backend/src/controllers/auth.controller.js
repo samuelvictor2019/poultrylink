@@ -1,5 +1,6 @@
 const asyncHandler = require('../utils/asyncHandler');
 const { sendSuccess } = require('../utils/ApiResponse');
+const ApiError = require('../utils/ApiError');
 const authService = require('../services/auth.service.js');
 const otpService = require('../services/otp.service');
 
@@ -8,12 +9,15 @@ const register = asyncHandler(async (req, res) => {
     sendSuccess(res, {
         statusCode: 201,
         message: 'Registered. An OTP has been sent to verify this account',
-        date: { user, otpExpiresAt }
+        data: { user, otpExpiresAt }
     });
 });
 
 const verifyRegistrationOtp = asyncHandler(async (req, res) => {
-    const { userId, code } = req.body;
+    const { userId, code, purpose } = req.body;
+    if (purpose !== 'REGISTRATION') {
+        throw ApiError.badRequest('Only registration OTPs can be verified here');
+    }
     const result = await authService.verifyRegistrationOtp(userId, code);
     sendSuccess(res, { message: 'Account verified', data: result });
 })
