@@ -1,13 +1,10 @@
-const dotenv = require('dotenv');
-dotenv.config();
-
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const env = require('./src/config/env');
 const authRoutes = require('./src/routes/auth.routes');
 const { connectDB, disconnectDB } = require('./src/config/dbHandler');
 const { apiLimiter } = require('./src/middleware/rateLimit.middleware');
-const env = require('./src/config/env');
 
 const app = express();
 app.set('trust proxy', 1); 
