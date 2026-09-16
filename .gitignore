@@ -1,0 +1,12 @@
+node_modules/
+.env
+dist/
+build/
+*.log
+npm-debug.log*
+.DS_Store
+coverage/
+.claude/
+.windsurf/
+/src/generated/prisma
+.agents/
