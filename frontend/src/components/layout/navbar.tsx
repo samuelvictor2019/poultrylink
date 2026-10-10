@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth-store";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api/client";
+import type { UserRole } from "@/types";
 
 const LINKS = [
   { href: "/marketplace", label: "Marketplace" },
@@ -12,6 +13,28 @@ const LINKS = [
   { href: "/how-it-works", label: "How It Works" },
   { href: "/about", label: "About" },
 ];
+
+// What shows up next to the main nav links once someone's logged in, based
+// on their role. Roles without a dashboard built yet (VET, COOPERATIVE,
+// FINANCIER) just see the links above — nothing extra to point them at.
+function dashboardLinksFor(role: UserRole): { href: string; label: string }[] {
+  switch (role) {
+    case "BUYER":
+      return [{ href: "/orders", label: "My Orders" }];
+    case "FARMER":
+    case "SUPPLIER":
+      return [
+        { href: "/selling/listings", label: "My Listings" },
+        { href: "/selling/orders", label: "Orders" },
+      ];
+    case "TRANSPORTER":
+      return [{ href: "/delivering/deliveries", label: "My Deliveries" }];
+    case "ADMIN":
+      return [{ href: "/admin", label: "Admin" }];
+    default:
+      return [];
+  }
+}
 
 export function Navbar() {
   const { user, status, clear } = useAuthStore();
@@ -23,6 +46,8 @@ export function Navbar() {
     router.push("/");
     router.refresh();
   }
+
+  const dashboardLinks = user ? dashboardLinksFor(user.role) : [];
 
   return (
     <header className="sticky top-0 z-40 backdrop-blur bg-background/90 border-b border-foreground/10">
@@ -42,6 +67,14 @@ export function Navbar() {
               </Link>
             </li>
           ))}
+          {status === "authenticated" &&
+            dashboardLinks.map((l) => (
+              <li key={l.href}>
+                <Link href={l.href} className="hover:opacity-70 transition">
+                  {l.label}
+                </Link>
+              </li>
+            ))}
         </ul>
 
         <div className="flex items-center gap-3">

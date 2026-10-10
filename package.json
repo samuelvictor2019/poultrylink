@@ -50,7 +50,7 @@
     "prisma:studio": "prisma studio --config backend/prisma7.config.ts",
     "seed": "node database/seeds/seed.js",
     "lint": "eslint backend/src",
-    "build": "npm --prefix poultrylink-frontend ci --include=dev && npm --prefix poultrylink-frontend run build && npm run prisma:generate"
+    "build": "npm run prisma:generate"
   },
   "keywords": [],
   "author": "",

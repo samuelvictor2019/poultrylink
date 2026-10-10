@@ -139,6 +139,35 @@ export interface Delivery {
   pickupAddress: string | null;
   deliveryAddress: string;
   confirmedAt: string | null;
+  // Only present on GET /deliveries/mine, which includes it.
+  order?: Pick<Order, "id" | "status" | "deliveryAddress">;
+}
+
+export interface AdminDashboardSummary {
+  userCount: number;
+  activeListingCount: number;
+  orderCount: number;
+  disputedOrders: number;
+  escrowCurrentlyHeld: number;
+  completedGmv: number;
+}
+
+// GET /admin/disputes includes escrow + a thinner buyer shape (email, no
+// isEmailVerified/isPhoneVerified) than the rest of the app uses.
+export interface AdminDisputeOrder extends Omit<Order, "buyer"> {
+  buyer?: { email: string; profile?: Pick<Profile, "firstName" | "lastName"> };
+}
+
+// GET /users (admin-only) selects a narrower field set than /auth/me does.
+export interface AdminUser {
+  id: string;
+  email: string;
+  phone: string | null;
+  role: UserRole;
+  verificationStatus: VerificationStatus;
+  isActive: boolean;
+  createdAt: string;
+  profile?: Pick<Profile, "firstName" | "lastName" | "businessName">;
 }
 
 export interface Order {
