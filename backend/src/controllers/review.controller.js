@@ -2,6 +2,7 @@ const { prisma } = require('../config/dbHandler');
 const asyncHandler = require('../utils/asyncHandler');
 const { sendSuccess } = require('../utils/ApiResponse');
 const ApiError = require('../utils/ApiError');
+const { notify, orderRef } = require('../services/notification.service');
 
 // Either party can review after the order is COMPLETED — reviewee is
 // whichever party the requester is not.
@@ -20,6 +21,14 @@ const createReview = asyncHandler(async (req, res) => {
   const review = await prisma.review.create({
     data: { orderId: order.id, reviewerId: req.user.id, revieweeId, rating: req.body.rating, comment: req.body.comment },
   });
+
+  await notify({
+  userId: revieweeId,
+  orderId: order.id,
+  type: 'REVIEW',
+  title: 'You received a review',
+  body: `You were rated ${review.rating}/5 stars on order ${orderRef(order.id)}. Check it out!`,
+});
 
   sendSuccess(res, { statusCode: 201, message: 'Review submitted', data: { review } });
 });
