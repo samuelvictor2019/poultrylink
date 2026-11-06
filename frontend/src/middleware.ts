@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { REFRESH_TOKEN_COOKIE } from "@/lib/api/config";
 
-const PROTECTED_PREFIXES = ["/profile", "/orders", "/messages", "/admin", "/listings/new"];
+const PROTECTED_PREFIXES = ["/profile", "/orders", "/messages", "/admin", "/listings/new", "/notifications"];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -23,5 +23,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/profile/:path*", "/orders/:path*", "/messages/:path*", "/admin/:path*", "/listings/new"],
+  matcher: ["/profile/:path*", "/orders/:path*", "/messages/:path*", "/admin/:path*", "/listings/new", "/notifications/:path*"],
 };

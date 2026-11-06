@@ -3,6 +3,7 @@ const { prisma } = require('../config/dbHandler');
 const ApiError = require('../utils/ApiError');
 const { getProvider } = require('./payment');
 const env = require('../config/env');
+const { notifyOrderEvent } = require('./notification.service');
 
 /**
  * Starts payment for an order: creates the Payment + EscrowTransaction rows
@@ -58,24 +59,32 @@ async function confirmPayment(reference, providerName = env.PAYMENT_PROVIDER) {
   if (payment.status === 'SUCCESS' || payment.status === 'REFUNDED') return payment;
 
   if (result.status !== 'success') {
-    await prisma.payment.update({
-      where: { id: payment.id },
+    const failed = await prisma.payment.updateMany({
+      where: { id: payment.id, status: 'PENDING' },
       data: { status: 'FAILED', rawResponse: result.raw },
     });
+    // verification can be polled repeatedly, so we don't throw an error here. The client can retry the request.
+    // only the first failure should notify
+    if (failed.count === 1 && payment.status === 'PENDING') {
+      await notifyOrderEvent('PAYMENT_FAILED', payment.orderId);
+    }
     return payment;
   }
 
   const providerAmountInCents = Math.round(Number(result.amount) * 100);
   const recordedAmountInCents = Math.round(Number(payment.amount) * 100);
   if (!Number.isFinite(providerAmountInCents) || providerAmountInCents !== recordedAmountInCents) {
-    await prisma.payment.update({
-      where: { id: payment.id },
+    const failed = await prisma.payment.updateMany({
+      where: { id: payment.id, status: 'PENDING' },
       data: { status: 'FAILED', rawResponse: result.raw },
     });
+    if (failed.count === 1 && payment.status === 'PENDING') {
+      await notifyOrderEvent('PAYMENT_FAILED', payment.orderId);
+    }
     throw ApiError.badRequest('Payment amount does not match the order total');
   }
 
-  return prisma.$transaction(async (tx) => {
+    const confirmed = await prisma.$transaction(async (tx) => {
     const escrow = await tx.escrowTransaction.findUnique({ where: { orderId: payment.orderId } });
     if (!escrow || escrow.status !== 'AWAITING_FUNDS') {
       throw ApiError.conflict(`Cannot hold escrow in status ${escrow?.status || 'missing'}`);
@@ -96,6 +105,9 @@ async function confirmPayment(reference, providerName = env.PAYMENT_PROVIDER) {
     await tx.order.update({ where: { id: payment.orderId }, data: { status: 'PAID' } });
     return tx.payment.findUnique({ where: { id: payment.id } });
   });
+
+  await notifyOrderEvent('PAYMENT_CONFIRMED', payment.orderId);
+  return confirmed;
 }
 
 /**

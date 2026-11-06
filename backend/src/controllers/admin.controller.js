@@ -1,6 +1,7 @@
 const { prisma } = require('../config/dbHandler');
 const asyncHandler = require('../utils/asyncHandler');
 const { sendSuccess } = require('../utils/ApiResponse');
+const { notifyOrderEvent } = require('../services/notification.service');
 
 // dashboard summary on admin portal
 const dashboard = asyncHandler(async (req, res) => {
@@ -58,10 +59,12 @@ const resolveDispute = asyncHandler(async (req, res) => {
     if (resolution === 'RELEASE_TO_SELLER') {
         const escrow = await escrowService.releaseEscrow(req.params.orderId);
         await prisma.order.update({ where: { id: req.params.orderId }, data: { status: 'COMPLETED' } });
+        await notifyOrderEvent('DISPUTE_RESOLVED', req.params.orderId, { resolution });
         return sendSuccess(res, { message: 'Dispute Resolved: The funds have been released to Seller', data: { escrow } });
     }
     const escrow = await escrowService.refundEscrow(req.params.orderId, 'Admin resolved dispute in favor of buyer');
     await prisma.order.update({ where: { id: req.params.orderId }, data: { status: 'CANCELLED' } });
+    await notifyOrderEvent('DISPUTE_RESOLVED', req.params.orderId, { resolution });
     sendSuccess(res, { message: 'Dispute resolved: The funds have been refunded to the buyer', data: { escrow } });
 });
 

@@ -225,6 +225,8 @@ export interface Message {
 
 export interface AppNotification {
   id: string;
+  // set when notification is related to an order, otherwise null
+  orderId: string | null;
   type: "ORDER" | "PAYMENT" | "ESCROW" | "DELIVERY" | "MESSAGE" | "REVIEW" | "SYSTEM" | "VERIFICATION";
   title: string;
   body: string;

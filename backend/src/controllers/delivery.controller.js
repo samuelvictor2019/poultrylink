@@ -2,6 +2,7 @@ const { prisma } = require('../config/dbHandler');
 const asyncHandler = require('../utils/asyncHandler');
 const { sendSuccess } = require('../utils/ApiResponse');
 const ApiError = require('../utils/ApiError');
+const { notifyOrderEvent } = require('../services/notification.service');
 
 const updateStatus = asyncHandler(async (req, res) => {
     const delivery = await prisma.delivery.findUnique({ where: { orderId: req.params.orderId } });
@@ -13,13 +14,17 @@ const updateStatus = asyncHandler(async (req, res) => {
         throw ApiError.forbidden('Only the buyer or an admin can confirm delivery');
     }
 
+    const statusChanged = delivery.status !== req.body.status;
     const updated = await prisma.delivery.update({
         where: { orderId: req.params.orderId },
         data: { status: req.body.status, ...(req.body.status === 'DELIVERED' && { confirmedAt: null }) }
     });
 
-    if (req.body.status === 'DELIVERED') {
+    if (statusChanged && req.body.status === 'DELIVERED') {
         await prisma.order.update({ where: { id: req.params.orderId }, data: { status: 'DELIVERED' } });
+        await notifyOrderEvent('DELIVERY_DELIVERED', req.params.orderId);
+    } else if (statusChanged && req.body.status === 'FAILED') {
+        await notifyOrderEvent('DELIVERY_FAILED', req.params.orderId);
     }
 
     sendSuccess(res, { message: 'Delivery status updated', data: { delivery: updated } });
