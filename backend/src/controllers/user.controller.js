@@ -3,6 +3,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const { sendSuccess } = require('../utils/ApiResponse');
 const ApiError = require('../utils/ApiError');
 const { getPagination, buildMeta } = require('../utils/pagination');
+const { notify } = require('../services/notification.service');
 
 const safeUserSelect = {
     id: true,
@@ -110,13 +111,13 @@ const setVerificationStatus = asyncHandler(async (req, res) => {
         data: { verificationStatus: status },
         select: safeUserSelect
     });
-    await prisma.notification.create({
-        data: {
-            userId: user.id,
-            type: 'VERIFICATION',
-            title: 'Verification Update',
-            body: `Your account verification status is now ${status}`
-        }
+    await notify({
+        userId: user.id,
+        type: 'VERIFICATION',
+        title: 'Verification update',
+        body: status === 'VERIFIED'
+            ? 'Your account has been verified.'
+            : 'Your verification was not approved. Update your details and contact support if you think this is a mistake.'
     });
     sendSuccess(res, { message: 'Verification status updated', data: { user } });
 });
@@ -128,6 +129,12 @@ const setActiveStatus = asyncHandler(async (req, res) => {
         where: { id: req.params.id },
         data: { isActive },
         select: safeUserSelect
+    });
+    await notify({
+        userId: user.id,
+        type: 'ACCOUNT_STATUS',
+        title: 'Account Status Update',
+        body: `Your account has been ${isActive ? 'activated' : 'deactivated'}`
     });
     sendSuccess(res, { message: `User ${isActive ? 'activated' : 'deactivated'}`, data: { user } });
 });
