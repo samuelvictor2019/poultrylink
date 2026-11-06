@@ -1,6 +1,7 @@
 const { prisma } = require('../config/dbHandler');
 const ApiError = require('../utils/ApiError');
 const escrowService = require('./escrow.service');
+const { notifyOrderEvent } = require('./notification.service');
 const { Prisma } = require('@prisma/client');
 const { parsePositiveDecimal } = require('../utils/decimal');
 
@@ -66,14 +67,7 @@ async function createOrder(buyerId, { items, deliveryAddress, deliveryState, del
     include: { items: { include: { listing: true } } },
   });
 
-  await prisma.notification.create({
-    data: {
-      userId: sellerId,
-      type: 'ORDER',
-      title: 'New order received',
-      body: `You have a new order (#${order.id.slice(0, 8)}) awaiting your response.`,
-    },
-  });
+  await notifyOrderEvent('ORDER_PLACED', order.id);
 
   return order;
 }
@@ -123,7 +117,7 @@ async function acceptOrder(orderId, sellerId) {
       }
     }
   });
-
+  await notifyOrderEvent('ORDER_ACCEPTED', orderId);
   return getOrderOrThrow(orderId);
 }
 
@@ -131,11 +125,22 @@ async function rejectOrder(orderId, sellerId) {
   const order = await getOrderOrThrow(orderId);
   assertParty(order, sellerId, 'seller');
   if (order.status !== 'PENDING_ACCEPTANCE') throw ApiError.badRequest(`Order cannot be rejected from status ${order.status}`);
-  return prisma.order.update({ where: { id: orderId }, data: { status: 'REJECTED' } });
+  const rejected = await prisma.order.update({
+    where: { id: orderId }, data: { status: 'REJECTED' }
+  });
+  await notifyOrderEvent('ORDER_REJECTED', orderId);
+  return rejected;
 }
 
 async function cancelOrder(orderId, userId, reason) {
   const order = await getOrderOrThrow(orderId);
+  const cancelled = await performCancellation(order, userId, reason);
+  await notifyOrderEvent('ORDER_CANCELLED', orderId, { refunded: order.status === 'PAID' });
+  return cancelled;
+}
+
+async function performCancellation(order, userId, reason) {
+  const orderId = order.id;
   assertParty(order, userId, 'buyer');
 
   if (['PENDING_ACCEPTANCE', 'ACCEPTED', 'AWAITING_PAYMENT'].includes(order.status)) {
@@ -241,6 +246,7 @@ async function markOutForDelivery(orderId, sellerId, transporterId, deliveryMeth
       },
     }),
   ]);
+  await notifyOrderEvent('ORDER_DISPATCHED', orderId, { transporterId });
 
   return getOrderOrThrow(orderId);
 }
@@ -309,7 +315,7 @@ async function getAvailableTransporters(orderId, farmerId) {
 async function confirmDelivery(orderId, buyerId) {
   const order = await getOrderOrThrow(orderId);
   assertParty(order, buyerId, 'buyer');
-  if (!['IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CONFIRMED'].includes(order.status)) {
+  if (!['IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(order.status)) {
     throw ApiError.badRequest(`Order cannot be confirmed from status ${order.status}`);
   }
   if (!order.delivery || !['IN_TRANSIT', 'DELIVERED', 'CONFIRMED'].includes(order.delivery.status)) {
@@ -324,12 +330,7 @@ async function confirmDelivery(orderId, buyerId) {
   await escrowService.releaseEscrow(orderId);
   const completed = await prisma.order.update({ where: { id: orderId }, data: { status: 'COMPLETED' } });
 
-  const sellerId = order.items[0].sellerId;
-  await prisma.notification.createMany({
-    data: [
-      { userId: sellerId, type: 'ESCROW', title: 'Funds released', body: `Escrow for order #${orderId.slice(0, 8)} has been released to you.` },
-    ],
-  });
+  await notifyOrderEvent('DELIVERY_CONFIRMED', orderId);
 
   return completed;
 }
@@ -341,7 +342,9 @@ async function disputeOrder(orderId, userId, reason) {
     throw ApiError.badRequest(`Order cannot be disputed from status ${order.status}`);
   }
   await prisma.order.update({ where: { id: orderId }, data: { status: 'DISPUTED' } });
-  return escrowService.markDisputed(orderId, reason);
+  const escrow = await escrowService.markDisputed(orderId, reason);
+  await notifyOrderEvent('DISPUTE_OPENED', orderId, { actorId: userId });
+  return escrow;
 }
 
 module.exports = {
