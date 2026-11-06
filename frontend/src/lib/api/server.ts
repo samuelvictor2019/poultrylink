@@ -74,24 +74,31 @@ export async function authedExpressFetch<T>(
   path: string,
   init: RequestInit = {}
 ): Promise<ApiResponse<T>> {
+  const { body } = await authedExpressFetchWithStatus<T>(path, init);
+  return body;
+}
+
+export async function authedExpressFetchWithStatus<T>(
+  path: string,
+  init: RequestInit = {}
+): Promise<{ status: number; body: ApiResponse<T> }> {
   let accessToken = getAccessToken();
   const { status, body: initialBody } = await rawExpressFetch<T>(path, { ...init, accessToken });
-  let body = initialBody;
 
-  if (status !== 401) return body;
+  if (status !== 401) return { status, body: initialBody };
 
   const refreshToken = getRefreshToken();
-  if (!refreshToken) return body;
+  if (!refreshToken) return { status, body: initialBody };
 
   const refreshed = await expressFetch<{ accessToken: string; refreshToken: string }>(
     "/auth/refresh-token",
     { method: "POST", body: JSON.stringify({ refreshToken }) }
   );
 
-  if (!refreshed.success) return body;
+  if (!refreshed.success) return { status, body: initialBody };
 
   setAuthCookies(refreshed.data.accessToken, refreshed.data.refreshToken);
   accessToken = refreshed.data.accessToken;
-  ({ body } = await rawExpressFetch<T>(path, { ...init, accessToken }));
-  return body;
+  const retried = await rawExpressFetch<T>(path, { ...init, accessToken });
+  return retried;
 }
