@@ -154,3 +154,5 @@ minimum order check should be reinforced
 farmers should be able to accept and assign riders on the platform 
 farmers can choose between delivery persons 
 background worker to make changes visible on frontend for every update
+live location sharing 
+make local government selection to be a drop down select
