@@ -1,40 +1,56 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { formatDate } from "@/lib/format";
+import { NotificationItem } from "@/components/notifications/notification-item";
 import {
+  useLatestNotifications,
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
-  useNotifications,
+  useUnreadCount,
 } from "@/hooks/use-notifications";
+import { notificationHref } from "@/lib/notifications";
+import { useAuthStore } from "@/store/auth-store";
+import type { AppNotification } from "@/types";
 
 export function NotificationBell() {
   const pathname = usePathname();
+  const role = useAuthStore((s) => s.user?.role);
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  const { data } = useNotifications(true);
+  const { data: unread = 0 } = useUnreadCount(Boolean(role));
+  const { data: latest, isLoading, isError } = useLatestNotifications(open);
   const markRead = useMarkNotificationRead();
   const markAll = useMarkAllNotificationsRead();
 
-  const items = data?.data ?? [];
-  const unread = items.filter((n) => !n.isRead).length;
+  const items = latest?.data ?? [];
 
   useEffect(() => setOpen(false), [pathname]);
 
-  // Close when clicking anywhere outside the dropdown.
   useEffect(() => {
     if (!open) return;
-    function onDown(e: MouseEvent) {
+    const onPointerDown = (e: PointerEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    };
+    const onKeyDown = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [open]);
+
+  if (!role) return null;
+
+  function handleOpen(n: AppNotification) {
+    if (!n.isRead) markRead.mutate(n.id);
+    setOpen(false);
+  }
 
   return (
     <div ref={wrapperRef} className="relative">
@@ -42,19 +58,23 @@ export function NotificationBell() {
         type="button"
         className="relative p-2 rounded-lg hover:bg-secondary"
         aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
+        aria-haspopup="true"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
         <Bell size={20} />
         {unread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
+          <span
+            aria-hidden
+            className="absolute -top-0.5 -right-0.5 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center"
+          >
             {unread > 9 ? "9+" : unread}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border-2 border-foreground bg-background pixel-shadow z-50">
+        <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border-2 border-foreground bg-background pixel-shadow z-50 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-foreground/10">
             <p className="font-head font-bold text-sm">Notifications</p>
             {unread > 0 && (
@@ -65,31 +85,25 @@ export function NotificationBell() {
           </div>
 
           <div className="max-h-96 overflow-y-auto">
-            {items.length === 0 ? (
-              <p className="px-4 py-8 text-center text-sm text-muted-foreground">Nothing yet.</p>
+            {isLoading ? (
+              <p className="px-4 py-8 text-center text-sm text-muted-foreground">Loading…</p>
+            ) : isError ? (
+              <p className="px-4 py-8 text-center text-sm text-destructive">Couldn&apos;t load notifications.</p>
+            ) : items.length === 0 ? (
+              <p className="px-4 py-8 text-center text-sm text-muted-foreground">You&apos;re all caught up.</p>
             ) : (
               items.map((n) => (
-                <button
-                  key={n.id}
-                  type="button"
-                  onClick={() => !n.isRead && markRead.mutate(n.id)}
-                  className={cn(
-                    "block w-full text-left px-4 py-3 border-b border-foreground/5 last:border-b-0 hover:bg-secondary",
-                    !n.isRead && "bg-secondary/60"
-                  )}
-                >
-                  <div className="flex items-start gap-2">
-                    {!n.isRead && <span className="mt-1.5 w-2 h-2 rounded-full bg-primary shrink-0" />}
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold">{n.title}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{n.body}</p>
-                      <p className="text-[11px] text-muted-foreground mt-1">{formatDate(n.createdAt)}</p>
-                    </div>
-                  </div>
-                </button>
+                <NotificationItem key={n.id} notification={n} href={notificationHref(n, role)} onOpen={handleOpen} />
               ))
             )}
           </div>
+
+          <Link
+            href="/notifications"
+            className="block px-4 py-3 text-center text-xs font-bold border-t border-foreground/10 hover:bg-secondary"
+          >
+            View all
+          </Link>
         </div>
       )}
     </div>
